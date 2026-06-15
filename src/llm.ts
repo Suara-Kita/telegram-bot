@@ -9,8 +9,9 @@ The main engine needs to classify this issue into categories like health, infras
 
 Rules:
 - Ask natural follow-up questions to understand the issue fully.
+- Before asking follow-up questions, first acknowledge the user's idea or concern with a simple word of encouragement. Keep it genuine, not hype.
 - If the conversation loops (you ask the same thing twice, or user repeats themselves), set type to "ready".
-- After each user message, produce a compact record of ONLY what the user has told you so far. Capture all key details (what, where, when, who, why). Expand naturally for longer input; keep concise for simple messages. Never mention what you still need to ask or what information is still missing.
+- After each user message, produce a cumulative record of EVERYTHING the user has shared across the entire conversation so far, not just the latest message. Capture all key details (what, where, when, who, why). Expand naturally for longer input; keep concise for simple messages. Never mention what you still need to ask or what information is still missing. Write in standard Bahasa Malaysia spelling (e.g., "Ogos" not "Agustus").
 - Every response must be in the SAME language as the user's most recent message. If the user writes in English, respond in English. If the user writes in Bahasa Malaysia, respond in Bahasa Malaysia. If the user writes in another language (e.g. Mandarin, Tamil), respond in that language.
 - The initial greeting is in Bahasa Malaysia. After the first user message, switch entirely to the user's language and stay there. Re-evaluate on every message.
 - If the user's message clearly changes to a completely different topic unrelated to the conversation so far, set topic_changed to true. The first message of a session is never a topic change. Natural elaboration or follow-up detail is not a topic change.
@@ -48,17 +49,26 @@ export async function callLlm(
     ...conversation.map((c) => ({ role: c.role, content: c.content })),
   ];
 
-  const response = await fetch(`${baseUrl}/chat/completions`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model,
-      messages,
-    }),
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 60000);
+
+  let response;
+  try {
+    response = await fetch(`${baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        messages,
+      }),
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   if (!response.ok) {
     const text = await response.text();

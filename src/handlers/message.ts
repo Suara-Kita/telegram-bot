@@ -87,9 +87,10 @@ export async function messageHandler(
 
   await saveSession(redis, chatId, session);
 
-  const replyText = `${llmResult.response}\n\n—\n📋 Ringkasan:\n${llmResult.summary}`;
+  const replyText = `${llmResult.response}\n\n—\n📋 Ringkasan:\n${llmResult.summary}\n\n_Korang boleh terus klik 'Hantar' kalau rasa ringkasan ni dah cukup padu!_`;
 
   await ctx.reply(replyText, {
+    parse_mode: 'Markdown',
     reply_markup: {
       inline_keyboard: [
         [
