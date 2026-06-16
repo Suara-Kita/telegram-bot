@@ -17,7 +17,9 @@ export function buildVoterInput(
       client_identifier: `tg_${chatId}`,
       display_name: displayName,
       contact_info: null,
-      inferred_constituency: null,
+      inferred_constituency: session.constituency
+        ? `${session.constituency.parlimen} - ${session.constituency.dun}`
+        : null,
     },
     content_payload: {
       raw_text: session.latestSummary,

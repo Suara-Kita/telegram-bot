@@ -15,13 +15,22 @@ export interface ConversationEntry {
   content: string;
 }
 
+export interface Constituency {
+  parlimen: string;
+  code_parlimen: string;
+  dun: string;
+  code_dun: string;
+}
+
 export interface Session {
-  state: 'conversing';
+  state: 'awaiting_constituency' | 'awaiting_dun_search' | 'conversing';
   conversation: ConversationEntry[];
   latestSummary: string;
   intentType: string;
   scope: string;
   language: string;
+  constituency: Constituency | null;
+  pendingDun: Constituency | null;
   createdAt: string;
   updatedAt: string;
 }

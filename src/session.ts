@@ -25,12 +25,14 @@ export async function deleteSession(redis: Redis, chatId: number): Promise<void>
 export function createSession(): Session {
   const now = new Date().toISOString();
   return {
-    state: 'conversing',
+    state: 'awaiting_constituency',
     conversation: [],
     latestSummary: '',
     intentType: '',
     scope: '',
     language: 'ms',
+    constituency: null,
+    pendingDun: null,
     createdAt: now,
     updatedAt: now,
   };

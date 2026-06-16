@@ -49,50 +49,102 @@ export async function callLlm(
     ...conversation.map((c) => ({ role: c.role, content: c.content })),
   ];
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 60000);
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60000);
 
-  let response;
-  try {
-    response = await fetch(`${baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model,
-        messages,
-      }),
-      signal: controller.signal,
-    });
-  } finally {
-    clearTimeout(timeoutId);
+    try {
+      const response = await fetch(`${baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({ model, messages }),
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        if (attempt < 2) continue;
+        throw new Error(`LLM request failed (${response.status}): ${text}`);
+      }
+
+      const data = (await response.json()) as OpenRouterResponse;
+      const content = data.choices[0]?.message?.content;
+      if (!content) {
+        if (attempt < 2) continue;
+        throw new Error('LLM returned no content');
+      }
+
+      let parsed: LlmResponse;
+      try {
+        parsed = JSON.parse(content) as LlmResponse;
+      } catch {
+        if (attempt < 2) {
+          messages.push({ role: 'assistant', content });
+          messages.push({
+            role: 'user',
+            content: `Response was not valid JSON: ${content.slice(0, 100)}. Respond with ONLY valid JSON matching the requested schema.`,
+          });
+          continue;
+        }
+        logger.warn({ content }, 'LLM returned invalid JSON on final attempt, using raw text');
+        return {
+          type: 'question',
+          response: content,
+          summary: '',
+          intent_type: 'other',
+          scope: 'local',
+          topic_changed: false,
+          troll_detected: false,
+        };
+      }
+
+      const missing: string[] = [];
+      if (!parsed.type) missing.push('type');
+      if (!parsed.response) missing.push('response');
+      if (!parsed.summary) missing.push('summary');
+      if (!parsed.intent_type) missing.push('intent_type');
+      if (!parsed.scope) missing.push('scope');
+      if (parsed.topic_changed === undefined) missing.push('topic_changed');
+      if (parsed.troll_detected === undefined) missing.push('troll_detected');
+
+      if (missing.length > 0) {
+        if (attempt < 2) {
+          messages.push({ role: 'assistant', content });
+          messages.push({
+            role: 'user',
+            content: `Response is missing required fields: ${missing.join(', ')}. Provide a complete response with all fields.`,
+          });
+          continue;
+        }
+        logger.warn({ parsed, missing }, 'LLM response missing fields on final attempt, filling defaults');
+        parsed.type = parsed.type || 'question';
+        parsed.response = parsed.response || '';
+        parsed.summary = parsed.summary || '';
+        parsed.intent_type = parsed.intent_type || 'other';
+        parsed.scope = parsed.scope || 'local';
+        parsed.topic_changed = parsed.topic_changed ?? false;
+        parsed.troll_detected = parsed.troll_detected ?? false;
+      }
+
+      return parsed;
+    } catch (e) {
+      if (attempt < 2) continue;
+      throw e;
+    } finally {
+      clearTimeout(timeoutId);
+    }
   }
 
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`LLM request failed (${response.status}): ${text}`);
-  }
-
-  const data = (await response.json()) as OpenRouterResponse;
-  const content = data.choices[0]?.message?.content;
-  if (!content) {
-    throw new Error('LLM returned no content');
-  }
-
-  const parsed = JSON.parse(content) as LlmResponse;
-
-  if (!parsed.type || !parsed.response || !parsed.summary || !parsed.intent_type || !parsed.scope || parsed.topic_changed === undefined || parsed.troll_detected === undefined) {
-    logger.warn({ parsed }, 'LLM response missing fields, filling defaults');
-    parsed.type = parsed.type || 'question';
-    parsed.response = parsed.response || '';
-    parsed.summary = parsed.summary || '';
-    parsed.intent_type = parsed.intent_type || 'other';
-    parsed.scope = parsed.scope || 'local';
-    parsed.topic_changed = parsed.topic_changed ?? false;
-    parsed.troll_detected = parsed.troll_detected ?? false;
-  }
-
-  return parsed;
+  return {
+    type: 'question',
+    response: 'Maaf, saya tidak dapat memproses mesej awak. Sila cuba sebentar lagi.',
+    summary: '',
+    intent_type: 'other',
+    scope: 'local',
+    topic_changed: false,
+    troll_detected: false,
+  };
 }
