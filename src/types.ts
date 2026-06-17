@@ -41,7 +41,6 @@ export interface LlmResponse {
   summary: string;
   intent_type: string;
   scope: string;
-  topic_changed: boolean;
   troll_detected: boolean;
 }
 

@@ -8,7 +8,7 @@ import { detectLanguage } from '../language.js';
 import { searchDun, loadCachedConstituency } from '../constituency.js';
 
 const logger = pino({ name: 'message-handler' });
-const GREETING = 'Jom mula berdiskusi atau taip apa sahaja di bawah: 👇';
+const GREETING = 'Jom mula berdiskusi atau taip apa sahaja di bawah: 👇\n\n_💡 Jika tidak pasti untuk memulakan diskusi, kita bermula dengan minat anda, apa anda suka lakukan?_';
 
 export async function messageHandler(
   ctx: Context,
@@ -88,26 +88,6 @@ export async function messageHandler(
   } catch (err) {
     logger.error({ err, chatId }, 'LLM call failed');
     await ctx.reply('Maaf, saya tidak dapat memproses mesej awak. Sila cuba sebentar lagi.');
-    return;
-  }
-
-  if (llmResult.topic_changed) {
-    session.conversation.pop();
-
-    const topicChangeMsg = 'Nampaknya awak beralih ke isu yang lain. Isu sebelum ini masih belum selesai. Sila hantar atau batalkan isu semasa dahulu sebelum beralih kepada isu baru.';
-    const replyText = `${topicChangeMsg}\n\n—\n📌 *Ringkasan Maklum Balas:*\n_${session.latestSummary}_`;
-
-    await ctx.reply(replyText, {
-      parse_mode: 'Markdown',
-      reply_markup: {
-        inline_keyboard: [
-          [
-            { text: '✅ Hantar', callback_data: 'submit' },
-            { text: '❌ Batal', callback_data: 'cancel' },
-          ],
-        ],
-      },
-    });
     return;
   }
 

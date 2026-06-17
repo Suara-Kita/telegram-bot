@@ -14,7 +14,9 @@ import {
 
 const logger = pino({ name: 'action-handler' });
 
-const GREETING = 'Jom mula berdiskusi atau taip apa sahaja di bawah: 👇';
+const THUMBS_UP_STICKER = 'CAACAgUAAxUAAWoyQyBoXkA4i5nQgtBHk0eV0CscAAKmHAACl9WRVdQJ5syd0wWfPAQ';
+
+const GREETING = 'Jom mula berdiskusi atau taip apa sahaja di bawah: 👇\n\n_💡 Jika tidak pasti untuk memulakan diskusi, kita bermula dengan minat anda, apa anda suka lakukan?_';
 
 function flattenCode(code: string): string {
   return code.toLowerCase().replace(/\./g, '');
@@ -41,7 +43,7 @@ export async function constituencyHandler(ctx: Context, redis: Redis): Promise<v
   ]);
 
   await ctx.answerCbQuery();
-  await ctx.reply(GREETING);
+  await ctx.reply(GREETING, { parse_mode: 'Markdown' });
 }
 
 export async function useCachedDunHandler(ctx: Context, redis: Redis): Promise<void> {
@@ -60,7 +62,7 @@ export async function useCachedDunHandler(ctx: Context, redis: Redis): Promise<v
   await saveSession(redis, chatId, session);
 
   await ctx.answerCbQuery();
-  await ctx.reply(GREETING);
+  await ctx.reply(GREETING, { parse_mode: 'Markdown' });
 }
 
 export async function changeDunHandler(ctx: Context, redis: Redis): Promise<void> {
@@ -132,7 +134,7 @@ export async function confirmDunHandler(ctx: Context, redis: Redis): Promise<voi
   ]);
 
   await ctx.answerCbQuery();
-  await ctx.reply(GREETING);
+  await ctx.reply(GREETING, { parse_mode: 'Markdown' });
 }
 
 export async function retryDunHandler(ctx: Context, redis: Redis): Promise<void> {
@@ -209,13 +211,13 @@ export async function submitAction(
     await deleteSession(redis, chatId);
 
     await ctx.answerCbQuery();
+    await ctx.replyWithSticker(THUMBS_UP_STICKER).catch(() => {});
     await ctx.reply(
-      'Suara Berjaya Disimpan! (100% Anon)\n\n'
+      '🎉 *Suara Berjaya Disimpan!* (100% Anon)\n\n'
       + 'Terima kasih! Isu atau diskusi anda dah selamat masuk ke dalam database kami. '
       + 'Pasukan digital kami akan mula proses idea ni untuk tindakan seterusnya.\n\n'
-      + '💬 Ada benda lain yang anda nak bincangkan?\n\n'
-      + 'Kalau ada perkara lain yang anda nak kritik, nak sembang pasal peluang ekonomi '
-      + 'belia, atau apa-apa isu kejiranan yang berbeza, boleh terus taip kat bawah sekarang: 👇',
+      + '💬 *Ada benda lain yang anda nak bincangkan?*',
+      { parse_mode: 'Markdown' },
     );
   } catch (err) {
     logger.error({ err, chatId }, 'Failed to process submission');
