@@ -84,7 +84,7 @@ export async function changeDunHandler(ctx: Context, redis: Redis): Promise<void
   ]);
 
   await ctx.answerCbQuery();
-  await ctx.reply('Pilih DUN korang:', {
+  await ctx.reply('Pilih DUN anda:', {
     reply_markup: {
       inline_keyboard: [
         ...buttons,
@@ -105,7 +105,7 @@ export async function triggerDunSearchHandler(ctx: Context, redis: Redis): Promi
   await saveSession(redis, chatId, session);
 
   await ctx.answerCbQuery();
-  await ctx.reply('Taip nama DUN korang (contoh: Pemanis, Kemelah, Larkin, atau kod macam N.44):', {
+  await ctx.reply('Taip nama DUN anda (contoh: Pemanis, Kemelah, Larkin, atau kod macam N.44):', {
     reply_markup: {
       inline_keyboard: [
         [{ text: '🔙 Kembali ke pilihan DUN', callback_data: 'back_dun' }],
@@ -166,7 +166,7 @@ export async function backToConstituencyHandler(ctx: Context, redis: Redis): Pro
   ]);
 
   await ctx.answerCbQuery();
-  await ctx.reply('Pilih DUN korang:', {
+  await ctx.reply('Pilih DUN anda:', {
     reply_markup: {
       inline_keyboard: [
         ...buttons,
@@ -211,10 +211,10 @@ export async function submitAction(
     await ctx.answerCbQuery();
     await ctx.reply(
       'Suara Berjaya Disimpan! (100% Anon)\n\n'
-      + 'Terima kasih! Isu atau diskusi korang dah selamat masuk ke dalam database kami. '
+      + 'Terima kasih! Isu atau diskusi anda dah selamat masuk ke dalam database kami. '
       + 'Pasukan digital kami akan mula proses idea ni untuk tindakan seterusnya.\n\n'
-      + '💬 Ada benda lain yang korang nak bincangkan?\n\n'
-      + 'Kalau ada perkara lain yang korang nak kritik, nak sembang pasal peluang ekonomi '
+      + '💬 Ada benda lain yang anda nak bincangkan?\n\n'
+      + 'Kalau ada perkara lain yang anda nak kritik, nak sembang pasal peluang ekonomi '
       + 'belia, atau apa-apa isu kejiranan yang berbeza, boleh terus taip kat bawah sekarang: 👇',
     );
   } catch (err) {

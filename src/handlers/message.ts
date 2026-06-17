@@ -29,15 +29,15 @@ export async function messageHandler(
       session.constituency = cached;
       session.conversation.push({ role: 'assistant', content: GREETING });
       await saveSession(redis, chatId, session);
-      await ctx.reply(`🧭 Diskusi seterusnya adalah untuk DUN: ${cached.dun}. Sila taip isu atau cadangan korang.`);
+      await ctx.reply(`🧭 Diskusi seterusnya adalah untuk DUN: ${cached.dun}. Sila taip isu atau cadangan anda.`);
       return;
     }
-    await ctx.reply('Sila mulakan dengan /start untuk pilih DUN korang.');
+    await ctx.reply('Sila mulakan dengan /start untuk pilih DUN anda.');
     return;
   }
 
   if (session.state === 'awaiting_constituency') {
-    await ctx.reply('Sila pilih DUN korang menggunakan butang di atas, atau taip /start.');
+    await ctx.reply('Sila pilih DUN anda menggunakan butang di atas, atau taip /start.');
     return;
   }
 
@@ -95,9 +95,10 @@ export async function messageHandler(
     session.conversation.pop();
 
     const topicChangeMsg = 'Nampaknya awak beralih ke isu yang lain. Isu sebelum ini masih belum selesai. Sila hantar atau batalkan isu semasa dahulu sebelum beralih kepada isu baru.';
-    const replyText = `${topicChangeMsg}\n\n—\n📋 Ringkasan:\n${session.latestSummary}`;
+    const replyText = `${topicChangeMsg}\n\n—\n📌 *Ringkasan Maklum Balas:*\n_${session.latestSummary}_`;
 
     await ctx.reply(replyText, {
+      parse_mode: 'Markdown',
       reply_markup: {
         inline_keyboard: [
           [
@@ -114,9 +115,10 @@ export async function messageHandler(
     session.conversation.pop();
 
     const trollMsg = 'Harap berikan respons yang serius. Isu sebelum ini masih belum selesai.';
-    const replyText = `${trollMsg}\n\n—\n📋 Ringkasan:\n${session.latestSummary}`;
+    const replyText = `${trollMsg}\n\n—\n📌 *Ringkasan Maklum Balas:*\n_${session.latestSummary}_`;
 
     await ctx.reply(replyText, {
+      parse_mode: 'Markdown',
       reply_markup: {
         inline_keyboard: [
           [
@@ -140,9 +142,13 @@ export async function messageHandler(
   const wordCount = llmResult.summary.trim().split(/\s+/).length;
   const showSubmit = wordCount > 7;
 
+  const formattedResponse = llmResult.response
+    .replace(/\.\s*/, '.\n\n')
+    .replace(/\?\s*/g, '?\n');
+
   const replyText = showSubmit
-    ? `${llmResult.response}\n\n—\n📋 Ringkasan:\n${llmResult.summary}\n\n_Korang boleh terus klik 'Hantar' kalau rasa ringkasan ni dah cukup padu!_`
-    : llmResult.response;
+    ? `${formattedResponse}\n\n—\n📌 *Ringkasan Maklum Balas:*\n_${llmResult.summary}_\n\n_💡 Jika ringkasan ini sudah tepat, anda boleh terus klik 'Hantar'!_`
+    : formattedResponse;
 
   await ctx.reply(replyText, {
     parse_mode: 'Markdown',

@@ -3,7 +3,7 @@ import type { Redis } from 'ioredis';
 import { createSession, saveSession } from '../session.js';
 import { getLokalDuns, loadCachedConstituency } from '../constituency.js';
 
-const WELCOME = 'Selamat datang ke Suara Sekijang! 👋\n\nJom fokus pada masa depan Sekijang. Platform ini dibina khas sebagai ruang sembang \'no filter\' dan 100% rahsia (anon) untuk kita sembang apa sahaja pasal landskap politik dan hala tuju anak muda.\n\nKongsi idea korang, luahkan pandangan politik, kritik cara lama, bincang pasal peluang ekonomi belia, berkongsi visi, atau hantar isu setempat seperti banjir dan fasiliti awam—semuanya tanpa perlu risau tentang identiti korang.\n\n⚙️ Dibangunkan & dipacu secara telus oleh Pasukan Digital Barisan Nasional Sekijang.\n\n🔒 Suara korang, identiti korang kekal selamat.';
+const WELCOME = 'Selamat datang ke Suara Sekijang! 👋\n\nJom fokus pada masa depan Sekijang. Platform ini dibina khas sebagai ruang sembang \'no filter\' dan 100% rahsia (anon) untuk kita sembang apa sahaja pasal landskap politik dan hala tuju anak muda.\n\nKongsi idea anda, luahkan pandangan politik, kritik cara lama, bincang pasal peluang ekonomi belia, berkongsi visi, atau hantar isu setempat seperti banjir dan fasiliti awam—semuanya tanpa perlu risau tentang identiti anda.\n\n⚙️ Dibangunkan & dipacu secara telus oleh Pasukan Digital Barisan Nasional Sekijang.\n\n🔒 Suara anda, identiti anda kekal selamat.';
 
 const GREETING = 'Jom mula berdiskusi atau taip apa sahaja di bawah: 👇';
 
@@ -18,7 +18,7 @@ export async function startHandler(ctx: Context, redis: Redis): Promise<void> {
 
   if (cached) {
     await ctx.reply(
-      `DUN korang: ${cached.dun} (${cached.parlimen})`,
+      `DUN anda: ${cached.dun} (${cached.parlimen})`,
       {
         reply_markup: {
           inline_keyboard: [
