@@ -86,14 +86,17 @@ export async function changeDunHandler(ctx: Context, redis: Redis): Promise<void
   ]);
 
   await ctx.answerCbQuery();
-  await ctx.reply('Pilih DUN anda:', {
-    reply_markup: {
-      inline_keyboard: [
-        ...buttons,
-        [{ text: '🌐 Lain-lain DUN', callback_data: 'dun_lain' }],
-      ],
+  await ctx.reply(
+    '📌 Semakan DUN Mengundi\n\nSila pilih DUN anda. Bagi yang belum pasti, anda boleh membuat semakan senarai daftar pemilih melalui pautan di bawah:\n\n🔗 Semak Di Sini: https://mysprsemak.spr.gov.my/semakan/daftarPemilih',
+    {
+      reply_markup: {
+        inline_keyboard: [
+          ...buttons,
+          [{ text: '🌐 Lain-lain DUN', callback_data: 'dun_lain' }],
+        ],
+      },
     },
-  });
+  );
 }
 
 export async function triggerDunSearchHandler(ctx: Context, redis: Redis): Promise<void> {

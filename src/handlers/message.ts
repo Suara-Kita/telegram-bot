@@ -77,6 +77,8 @@ export async function messageHandler(
 
   session.conversation.push({ role: 'user', content: text });
 
+  const userLanguage = detectLanguage(text);
+
   let llmResult;
   try {
     llmResult = await callLlm(
@@ -84,6 +86,7 @@ export async function messageHandler(
       config.openrouterApiKey,
       config.llmModel,
       session.conversation,
+      userLanguage,
     );
   } catch (err) {
     logger.error({ err, chatId }, 'LLM call failed');
@@ -115,12 +118,15 @@ export async function messageHandler(
   session.latestSummary = llmResult.summary;
   session.intentType = llmResult.intent_type;
   session.scope = llmResult.scope;
-  session.language = detectLanguage(text);
+  session.language = userLanguage;
 
   await saveSession(redis, chatId, session);
 
-  const wordCount = llmResult.summary.trim().split(/\s+/).length;
-  const showSubmit = wordCount > 7;
+  const hasCJK = /[\u4e00-\u9fff\u3400-\u4dbf]/.test(llmResult.summary);
+  const wordCount = hasCJK
+    ? llmResult.summary.replace(/[\s\p{P}]/gu, '').length
+    : llmResult.summary.trim().split(/\s+/).length;
+  const showSubmit = hasCJK ? wordCount >= 15 : wordCount > 7;
 
   const formattedResponse = llmResult.response
     .replace(/\.\s*/, '.\n\n')

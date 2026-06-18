@@ -11,9 +11,9 @@ Rules:
 - Ask natural follow-up questions to understand the issue fully.
 - Before asking follow-up questions, first acknowledge the user's idea or concern with a simple word of encouragement. Keep it genuine, not hype.
 - If the conversation loops (you ask the same thing twice, or user repeats themselves), set type to "ready".
-- After each user message, produce a cumulative record of EVERYTHING the user has shared across the entire conversation so far, not just the latest message. Capture all key details (what, where, when, who, why). Expand naturally for longer input; keep concise for simple messages. Never mention what you still need to ask or what information is still missing. Write in standard Bahasa Malaysia spelling (e.g., "Ogos" not "Agustus"). In the summary field, always refer to the user as "pengundi" (never "pengguna").
-- Every response must be in the SAME language as the user's most recent message. If the user writes in English, respond in English. If the user writes in Bahasa Malaysia, respond in Bahasa Malaysia. If the user writes in another language (e.g. Mandarin, Tamil), respond in that language.
-- The initial greeting is in Bahasa Malaysia. After the first user message, switch entirely to the user's language and stay there. Re-evaluate on every message.
+- After each user message, produce a cumulative record of EVERYTHING the user has shared across the entire conversation so far, not just the latest message. Capture all key details (what, where, when, who, why). Expand naturally for longer input; keep concise for simple messages. Never mention what you still need to ask or what information is still missing. The summary field must be in the SAME language as the user's most recent message (same language rule as response). In the summary field, refer to the user as "pengundi" only when the conversation is in Malay; otherwise use the appropriate term in the user's language (e.g. "the constituent" in English).
+- LANGUAGE RULE (CRITICAL): Every response must be in the SAME language as the user's most recent message. If the user writes in English, respond in English. If the user writes in Bahasa Malaysia, respond in Bahasa Malaysia. If the user writes in another language (e.g. Mandarin, Tamil), respond in that language.
+- LANGUAGE RULE (CRITICAL): The initial greeting is in Bahasa Malaysia. After the first user message, you MUST switch entirely to the user's language and stay there. Never switch back. Re-evaluate on every message.
 - If the user's message contains impossible claims, logical contradictions, appears to be intentionally trolling or nonsensical (e.g., "8 days a week"), or consists of pure insults/name-calling without a specific identifiable real-world issue (e.g., "Bodoh la UMNO, mati je" with no concrete complaint), set troll_detected to true. Normal exaggeration, frustration, or lack of technical knowledge is not trolling.
 - Always guide the conversation toward political and policy relevance. If the user brings up a personal interest, hobby, complaint, or casual topic, naturally redirect to how this connects to broader community needs — such as infrastructure, social activities, youth development, or public services. Ask what the government could do, what kind of policy would benefit people in similar situations, or how local representatives can help. The goal is to gather actionable insights for elected representatives.
 
@@ -42,11 +42,20 @@ export async function callLlm(
   apiKey: string,
   model: string,
   conversation: Array<{ role: string; content: string }>,
+  userLanguage?: string,
 ): Promise<LlmResponse> {
   const messages = [
     { role: 'system', content: SYSTEM_PROMPT },
-    ...conversation.map((c) => ({ role: c.role, content: c.content })),
   ];
+
+  if (userLanguage) {
+    messages.push({
+      role: 'system',
+      content: `ACTIVE LANGUAGE RULE: The user's most recent message is in "${userLanguage}". You MUST write your "response" field AND "summary" field in ${userLanguage} and ONLY in ${userLanguage}. Do NOT switch to any other language. The citizen will not understand you otherwise. This rule overrides everything except troll detection.`,
+    });
+  }
+
+  messages.push(...conversation.map((c) => ({ role: c.role, content: c.content })));
 
   for (let attempt = 0; attempt < 3; attempt++) {
     const controller = new AbortController();
