@@ -7,6 +7,9 @@ export interface Config {
   openrouterBaseUrl: string;
   openrouterApiKey: string;
   llmModel: string;
+  fallbackOpenrouterBaseUrl: string;
+  fallbackOpenrouterApiKey: string;
+  fallbackLlmModel: string;
   logLevel: string;
 }
 

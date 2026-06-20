@@ -79,12 +79,21 @@ export async function messageHandler(
 
   const userLanguage = detectLanguage(text);
 
+  const useFallback = userLanguage === 'mandarin' || userLanguage === 'tamil';
+  const activeBaseUrl = useFallback && config.fallbackOpenrouterBaseUrl
+    ? config.fallbackOpenrouterBaseUrl
+    : config.openrouterBaseUrl;
+  const activeApiKey = useFallback && config.fallbackOpenrouterApiKey
+    ? config.fallbackOpenrouterApiKey
+    : config.openrouterApiKey;
+  const activeModel = useFallback ? config.fallbackLlmModel : config.llmModel;
+
   let llmResult;
   try {
     llmResult = await callLlm(
-      config.openrouterBaseUrl,
-      config.openrouterApiKey,
-      config.llmModel,
+      activeBaseUrl,
+      activeApiKey,
+      activeModel,
       session.conversation,
       userLanguage,
     );

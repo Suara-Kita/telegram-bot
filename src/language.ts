@@ -1,4 +1,14 @@
 export function detectLanguage(text: string): string {
+  for (const c of text) {
+    const code = c.codePointAt(0)!;
+    if ((code >= 0x4e00 && code <= 0x9fff) || (code >= 0x3400 && code <= 0x4dbf)) {
+      return 'mandarin';
+    }
+    if (code >= 0x0b80 && code <= 0x0bff) {
+      return 'tamil';
+    }
+  }
+
   const bmWords = [
     'saya', 'awak', 'kamu', 'ini', 'itu', 'dan', 'di', 'ke', 'dari',
     'yang', 'tidak', 'ada', 'boleh', 'tolong', 'nak', 'dah', 'ni', 'tu',
@@ -20,7 +30,7 @@ export function detectLanguage(text: string): string {
   const lower = text.toLowerCase();
   const words = lower.split(/[^a-zA-Z]+/).filter(Boolean);
 
-  if (words.length === 0) return 'ms';
+  if (words.length === 0) return 'malay';
 
   let bmScore = 0;
   let enScore = 0;
@@ -30,7 +40,7 @@ export function detectLanguage(text: string): string {
     if (enWords.includes(word)) enScore++;
   }
 
-  if (bmScore > enScore) return 'ms';
-  if (enScore > bmScore) return 'en';
-  return 'ms';
+  if (bmScore > enScore) return 'malay';
+  if (enScore > bmScore) return 'english';
+  return 'malay';
 }

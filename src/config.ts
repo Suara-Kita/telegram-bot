@@ -20,6 +20,9 @@ export function loadConfig(): Config {
     openrouterBaseUrl: process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1',
     openrouterApiKey: process.env.OPENROUTER_API_KEY!,
     llmModel: process.env.LLM_MODEL || 'openai/gpt-oss-120b',
+    fallbackOpenrouterBaseUrl: process.env.FALLBACK_OPENROUTER_BASE_URL || '',
+    fallbackOpenrouterApiKey: process.env.FALLBACK_OPENROUTER_API_KEY || '',
+    fallbackLlmModel: process.env.FALLBACK_LLM_MODEL || 'qwen/qwen3.5-397b-a17b',
     logLevel: process.env.LOG_LEVEL || 'info',
   };
 }
