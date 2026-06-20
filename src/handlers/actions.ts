@@ -10,6 +10,7 @@ import {
   saveCachedConstituency,
   loadCachedConstituency,
   deleteCachedConstituency,
+  findDunByFlatCode,
 } from '../constituency.js';
 
 const logger = pino({ name: 'action-handler' });
@@ -176,6 +177,35 @@ export async function backToConstituencyHandler(ctx: Context, redis: Redis): Pro
       inline_keyboard: [
         ...buttons,
         [{ text: '🌐 Lain-lain DUN', callback_data: 'dun_lain' }],
+      ],
+    },
+  });
+}
+
+export async function selectCandidateHandler(ctx: Context, redis: Redis): Promise<void> {
+  const chatId = ctx.chat?.id;
+  if (!chatId) { await ctx.answerCbQuery(); return; }
+
+  const data = (ctx as any).callbackQuery?.data as string;
+  const flatCode = data?.replace('dun_candidate_', '');
+  const match = findDunByFlatCode(flatCode);
+  if (!match) { await ctx.answerCbQuery(); return; }
+
+  const session = await loadSession(redis, chatId);
+  if (!session) { await ctx.answerCbQuery(); return; }
+
+  session.pendingDun = match;
+  await saveSession(redis, chatId, session);
+
+  await ctx.answerCbQuery();
+  await ctx.reply(`Anda maksudkan **${match.dun} (${match.parlimen})**?`, {
+    parse_mode: 'Markdown',
+    reply_markup: {
+      inline_keyboard: [
+        [
+          { text: '✅ Ya', callback_data: 'confirm_dun' },
+          { text: '❌ Tidak', callback_data: 'retry_dun' },
+        ],
       ],
     },
   });

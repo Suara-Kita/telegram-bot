@@ -15,6 +15,7 @@ import {
   backToConstituencyHandler,
   useCachedDunHandler,
   changeDunHandler,
+  selectCandidateHandler,
 } from './handlers/actions.js';
 
 const logger = pino({ name: 'telegram-bot' });
@@ -57,6 +58,10 @@ bot.action('use_cached_dun', async (ctx) => {
 
 bot.action('change_dun', async (ctx) => {
   await changeDunHandler(ctx, redis);
+});
+
+bot.action(/^dun_candidate_\w+$/, async (ctx) => {
+  await selectCandidateHandler(ctx, redis);
 });
 
 bot.action('submit', async (ctx) => {
