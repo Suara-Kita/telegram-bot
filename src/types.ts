@@ -34,6 +34,8 @@ export interface Session {
   language: string;
   constituency: Constituency | null;
   pendingDun: Constituency | null;
+  systemMessageIds: number[];
+  ringkasanMessageId: number | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -53,6 +55,7 @@ export interface VoterInput {
     source_channel: string;
     ingested_at: string;
     trace_url: string | null;
+    retry_count?: number;
   };
   source_profile: {
     client_identifier: string;

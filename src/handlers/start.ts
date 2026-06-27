@@ -6,8 +6,6 @@ import { getLokalDuns, loadCachedConstituency } from "../constituency.js";
 const WELCOME =
   "Selamat datang ke Project Synchro! 👋\n\nJom fokus pada masa depan Sekijang. Platform ini dibina khas sebagai ruang sembang 'no filter' dan 100% rahsia (anon) untuk kita sembang apa sahaja pasal landskap politik dan hala tuju anak muda.\n\nKongsi idea anda, luahkan pandangan politik, kritik cara lama, bincang pasal peluang ekonomi belia, berkongsi visi, atau hantar isu setempat seperti banjir dan fasiliti awam—semuanya tanpa perlu risau tentang identiti anda.\n\n⚙️ Dibangunkan & dipacu secara telus oleh Pasukan Digital Barisan Nasional Sekijang.\n\n🔒 Suara anda, identiti anda kekal selamat.";
 
-const GREETING = "Jom mula berdiskusi atau taip apa sahaja di bawah: 👇\n\n_💡 Jika tidak pasti untuk memulakan diskusi, kita bermula dengan minat anda, apa anda suka lakukan?_";
-
 export async function startHandler(ctx: Context, redis: Redis): Promise<void> {
   const chatId = ctx.chat?.id;
   if (!chatId) return;
@@ -18,7 +16,7 @@ export async function startHandler(ctx: Context, redis: Redis): Promise<void> {
   const cached = await loadCachedConstituency(redis, chatId);
 
   if (cached) {
-    await ctx.reply(`DUN anda: ${cached.dun} (${cached.parlimen})`, {
+    const msg = await ctx.reply(`DUN anda: ${cached.dun} (${cached.parlimen})`, {
       reply_markup: {
         inline_keyboard: [
           [
@@ -28,6 +26,8 @@ export async function startHandler(ctx: Context, redis: Redis): Promise<void> {
         ],
       },
     });
+    session.systemMessageIds = [msg.message_id];
+    await saveSession(redis, chatId, session);
   } else {
     const lokal = getLokalDuns();
     const buttons = lokal.map((d) => [
@@ -37,8 +37,8 @@ export async function startHandler(ctx: Context, redis: Redis): Promise<void> {
       },
     ]);
 
-    await ctx.reply(WELCOME);
-    await ctx.reply(
+    const welcomeMsg = await ctx.reply(WELCOME);
+    const pickerMsg = await ctx.reply(
       '📌 Semakan DUN Mengundi\n\nSila pilih DUN anda. Bagi yang belum pasti, anda boleh membuat semakan senarai daftar pemilih melalui pautan di bawah:\n\n🔗 Semak Di Sini: https://mysprsemak.spr.gov.my/semakan/daftarPemilih',
       {
         reply_markup: {
@@ -49,5 +49,7 @@ export async function startHandler(ctx: Context, redis: Redis): Promise<void> {
         },
       },
     );
+    session.systemMessageIds = [welcomeMsg.message_id, pickerMsg.message_id];
+    await saveSession(redis, chatId, session);
   }
 }

@@ -8,8 +8,6 @@ import { detectLanguage } from "../language.js";
 import { searchDun, searchDunFuzzy, searchDunWithLlm, flattenCode, loadCachedConstituency } from "../constituency.js";
 
 const logger = pino({ name: "message-handler" });
-const GREETING =
-  "Jom mula berdiskusi atau taip apa sahaja di bawah: 👇\n\n_💡 Jika tidak pasti untuk memulakan diskusi, kita bermula dengan minat anda, apa anda suka lakukan?_";
 
 export async function messageHandler(
   ctx: Context,
@@ -29,11 +27,14 @@ export async function messageHandler(
       session = createSession();
       session.state = "conversing";
       session.constituency = cached;
-      session.conversation.push({ role: "assistant", content: GREETING });
+      session.conversation.push({ role: "assistant", content: `✅ DUN dipilih: ${cached.dun} (${cached.parlimen})` });
+      session.conversation.push({ role: "assistant", content: "Assalamualaikum dan selamat sejahtera, awak apa khabar?" });
       await saveSession(redis, chatId, session);
-      await ctx.reply(
-        `🧭 Diskusi seterusnya adalah untuk DUN: ${cached.dun}. Sila taip isu atau cadangan anda.`,
-      );
+      const dunMsg = await ctx.reply(`✅ DUN dipilih: ${cached.dun} (${cached.parlimen})`);
+      await new Promise(r => setTimeout(r, 2000));
+      await ctx.deleteMessage(dunMsg.message_id).catch(() => {});
+      await new Promise(r => setTimeout(r, 5000));
+      await ctx.reply("Assalamualaikum dan selamat sejahtera, awak apa khabar?");
       return;
     }
     await ctx.reply("Sila mulakan dengan /start untuk pilih DUN anda.");
@@ -154,6 +155,11 @@ export async function messageHandler(
     return;
   }
 
+  if (session.ringkasanMessageId != null) {
+    await ctx.deleteMessage(session.ringkasanMessageId).catch(() => {});
+    session.ringkasanMessageId = null;
+  }
+
   session.conversation.push({ role: "user", content: text });
 
   const userLanguage = detectLanguage(text);
@@ -193,7 +199,7 @@ export async function messageHandler(
       "Harap berikan respons yang serius. Isu sebelum ini masih belum selesai.";
     const replyText = `${trollMsg}\n\n—\n📌 *Ringkasan Maklum Balas:*\n_${session.latestSummary}_`;
 
-    await ctx.reply(replyText, {
+    const ringkasanMsg = await ctx.reply(replyText, {
       parse_mode: "Markdown",
       reply_markup: {
         inline_keyboard: [
@@ -204,11 +210,15 @@ export async function messageHandler(
         ],
       },
     });
+    session.ringkasanMessageId = ringkasanMsg.message_id;
+    await saveSession(redis, chatId, session);
     return;
   }
 
   session.conversation.push({ role: "assistant", content: llmResult.response });
-  session.latestSummary = llmResult.summary;
+  if (llmResult.summary.length > session.latestSummary.length) {
+    session.latestSummary = llmResult.summary;
+  }
   session.intentType = llmResult.intent_type;
   session.scope = llmResult.scope;
   session.language = userLanguage;
@@ -219,27 +229,31 @@ export async function messageHandler(
   const wordCount = hasCJK
     ? llmResult.summary.replace(/[\s\p{P}]/gu, "").length
     : llmResult.summary.trim().split(/\s+/).length;
-  const showSubmit = hasCJK ? wordCount >= 15 : wordCount > 7;
+  const showSubmit = llmResult.type === "ready" || (hasCJK ? wordCount >= 15 : wordCount > 20);
 
   const formattedResponse = llmResult.response
     .replace(/\.\s*/, ".\n\n")
     .replace(/\?\s*/g, "?\n");
 
-  const replyText = showSubmit
-    ? `${formattedResponse}\n\n—\n📌 *Ringkasan Maklum Balas:*\n_${llmResult.summary}_\n\n_💡 Jika ringkasan ini sudah tepat, anda boleh terus klik 'Hantar'!_`
-    : formattedResponse;
-
-  await ctx.reply(replyText, {
-    parse_mode: "Markdown",
-    ...(showSubmit && {
-      reply_markup: {
-        inline_keyboard: [
-          [
-            { text: "✅ Hantar", callback_data: "submit" },
-            { text: "❌ Batal", callback_data: "cancel" },
+  if (showSubmit) {
+    await ctx.reply(formattedResponse);
+    const ringkasanMsg = await ctx.reply(
+      `📌 *Ringkasan Maklum Balas:*\n_${session.latestSummary}_\n\n_💡 Jika ringkasan ini sudah tepat, anda boleh terus klik 'Hantar'!_`,
+      {
+        parse_mode: "Markdown",
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: "✅ Hantar", callback_data: "submit" },
+              { text: "❌ Batal", callback_data: "cancel" },
+            ],
           ],
-        ],
+        },
       },
-    }),
-  });
+    );
+    session.ringkasanMessageId = ringkasanMsg.message_id;
+    await saveSession(redis, chatId, session);
+  } else {
+    await ctx.reply(formattedResponse);
+  }
 }

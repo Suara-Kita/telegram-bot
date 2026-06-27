@@ -8,14 +8,15 @@ const SYSTEM_PROMPT = `You are a Malaysian constituency service assistant having
 The main engine needs to classify this issue into categories like health, infrastructure, education, etc. Your job is to naturally ask follow-up questions that reveal what the issue is about, where it is, who is affected, why it matters, and how it connects to public policy or community needs. Do NOT ask "what category is this" directly.
 
 Rules:
-- Ask natural follow-up questions to understand the issue fully.
-- Before asking follow-up questions, first acknowledge the user's idea or concern with a simple word of encouragement. Keep it genuine, not hype.
+- Start with casual daily-life questions (e.g., "buat apa hari ni?") to build rapport. Listen to what the user shares about their day.
+- Naturally transition from their daily activities to community needs — e.g., if they went to the market, ask about prices; if they stayed home, ask about neighbourhood conditions.
+- Gradually guide toward political and policy relevance without making it feel like an interview. After 1-2 exchanges about daily life, gently steer toward how their experiences connect to broader community needs, public services, or policy.
+- Ask ONE question at a time. Never bundle multiple questions in a single response. Let the user answer before asking the next question.
 - If the conversation loops (you ask the same thing twice, or user repeats themselves), set type to "ready".
 - After each user message, produce a cumulative record of EVERYTHING the user has shared across the entire conversation so far, not just the latest message. Capture all key details (what, where, when, who, why). Expand naturally for longer input; keep concise for simple messages. Never mention what you still need to ask or what information is still missing. The summary field must be in the SAME language as the user's most recent message (same language rule as response). In the summary field, refer to the user as "pengundi" only when the conversation is in Malay; otherwise use the appropriate term in the user's language (e.g. "the constituent" in English).
 - LANGUAGE RULE (CRITICAL): Every response must be in the SAME language as the user's most recent message. If the user writes in English, respond in English. If the user writes in Bahasa Malaysia, respond in Bahasa Malaysia. If the user writes in another language (e.g. Mandarin, Tamil), respond in that language.
 - LANGUAGE RULE (CRITICAL): The initial greeting is in Bahasa Malaysia. After the first user message, you MUST switch entirely to the user's language and stay there. Never switch back. Re-evaluate on every message.
 - If the user's message contains impossible claims, logical contradictions, appears to be intentionally trolling or nonsensical (e.g., "8 days a week"), or consists of pure insults/name-calling without a specific identifiable real-world issue (e.g., "Bodoh la UMNO, mati je" with no concrete complaint), set troll_detected to true. Normal exaggeration, frustration, or lack of technical knowledge is not trolling.
-- Always guide the conversation toward political and policy relevance. If the user brings up a personal interest, hobby, complaint, or casual topic, naturally redirect to how this connects to broader community needs — such as infrastructure, social activities, youth development, or public services. Ask what the government could do, what kind of policy would benefit people in similar situations, or how local representatives can help. The goal is to gather actionable insights for elected representatives.
 
 Output JSON with exactly these fields:
 {
@@ -49,9 +50,12 @@ export async function callLlm(
   ];
 
   if (userLanguage) {
+    const forcedLanguage = userLanguage === "mandarin" || userLanguage === "tamil"
+      ? userLanguage
+      : "malay";
     messages.push({
       role: 'system',
-      content: `ACTIVE LANGUAGE RULE: The user's most recent message is in "${userLanguage}". You MUST write your "response" field AND "summary" field in ${userLanguage} and ONLY in ${userLanguage}. Do NOT switch to any other language. The citizen will not understand you otherwise. This rule overrides everything except troll detection.`,
+      content: `ACTIVE LANGUAGE RULE: The user's most recent message is in "${forcedLanguage}". You MUST write your "response" field AND "summary" field in ${forcedLanguage} and ONLY in ${forcedLanguage}. Do NOT switch to any other language. The citizen will not understand you otherwise. This rule overrides everything except troll detection.`,
     });
   }
 
@@ -151,4 +155,51 @@ export async function callLlm(
     scope: 'local',
     troll_detected: false,
   };
+}
+
+export async function callSimpleLlm(
+  baseUrl: string,
+  apiKey: string,
+  model: string,
+  messages: Array<{ role: string; content: string }>,
+): Promise<string> {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60000);
+
+    try {
+      const response = await fetch(`${baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({ model, messages }),
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        if (attempt < 1) continue;
+        throw new Error(`LLM simple request failed (${response.status}): ${text}`);
+      }
+
+      const data = (await response.json()) as OpenRouterResponse;
+      const content = data.choices[0]?.message?.content;
+      if (!content) {
+        if (attempt < 1) continue;
+        throw new Error('LLM simple returned no content');
+      }
+
+      return content;
+    } catch (e) {
+      if (attempt < 1) continue;
+      logger.error({ err: e }, 'callSimpleLlm failed');
+      throw e;
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+
+  return 'Terima kasih atas maklum balas anda. Pasukan kami akan menyemaknya segera.';
 }

@@ -33,6 +33,8 @@ export function createSession(): Session {
     language: 'ms',
     constituency: null,
     pendingDun: null,
+    systemMessageIds: [],
+    ringkasanMessageId: null,
     createdAt: now,
     updatedAt: now,
   };

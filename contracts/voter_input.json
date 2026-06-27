@@ -33,6 +33,12 @@
           "type": ["string", "null"],
           "format": "uri",
           "description": "Direct URL to source post/thread (null for private 1-to-1 chats)"
+        },
+        "retry_count": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 0,
+          "description": "Number of times this message has been retried from the DLQ"
         }
       }
     },

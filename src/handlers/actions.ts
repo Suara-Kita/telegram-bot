@@ -5,6 +5,7 @@ import type { Config } from '../types.js';
 import { loadSession, deleteSession, saveSession } from '../session.js';
 import { pushToQueue, incrementCounter } from '../redis.js';
 import { buildVoterInput } from '../normalizer.js';
+import { callSimpleLlm } from '../llm.js';
 import {
   getLokalDuns,
   saveCachedConstituency,
@@ -17,7 +18,7 @@ const logger = pino({ name: 'action-handler' });
 
 const THUMBS_UP_STICKER = 'CAACAgUAAxUAAWoyQyBoXkA4i5nQgtBHk0eV0CscAAKmHAACl9WRVdQJ5syd0wWfPAQ';
 
-const GREETING = 'Jom mula berdiskusi atau taip apa sahaja di bawah: 👇\n\n_💡 Jika tidak pasti untuk memulakan diskusi, kita bermula dengan minat anda, apa anda suka lakukan?_';
+const APA_KABAR = "Assalamualaikum dan selamat sejahtera, awak apa khabar?";
 
 function flattenCode(code: string): string {
   return code.toLowerCase().replace(/\./g, '');
@@ -37,14 +38,24 @@ export async function constituencyHandler(ctx: Context, redis: Redis): Promise<v
 
   session.state = 'conversing';
   session.constituency = match;
-  session.conversation.push({ role: 'assistant', content: GREETING });
+  const oldIds = session.systemMessageIds || [];
+  session.systemMessageIds = [];
+  session.conversation.push({ role: 'assistant', content: `✅ DUN dipilih: ${match.dun} (${match.parlimen})` });
+  session.conversation.push({ role: 'assistant', content: APA_KABAR });
   await Promise.all([
     saveSession(redis, chatId, session),
     saveCachedConstituency(redis, chatId, match),
   ]);
 
   await ctx.answerCbQuery();
-  await ctx.reply(GREETING, { parse_mode: 'Markdown' });
+  for (const id of oldIds) {
+    await ctx.deleteMessage(id).catch(() => {});
+  }
+  const dunMsg = await ctx.reply(`✅ DUN dipilih: ${match.dun} (${match.parlimen})`);
+  await new Promise(r => setTimeout(r, 2000));
+  await ctx.deleteMessage(dunMsg.message_id).catch(() => {});
+  await new Promise(r => setTimeout(r, 5000));
+  await ctx.reply(APA_KABAR);
 }
 
 export async function useCachedDunHandler(ctx: Context, redis: Redis): Promise<void> {
@@ -59,11 +70,21 @@ export async function useCachedDunHandler(ctx: Context, redis: Redis): Promise<v
 
   session.state = 'conversing';
   session.constituency = cached;
-  session.conversation.push({ role: 'assistant', content: GREETING });
+  const oldIds = session.systemMessageIds || [];
+  session.systemMessageIds = [];
+  session.conversation.push({ role: 'assistant', content: `✅ DUN dipilih: ${cached.dun} (${cached.parlimen})` });
+  session.conversation.push({ role: 'assistant', content: APA_KABAR });
   await saveSession(redis, chatId, session);
 
   await ctx.answerCbQuery();
-  await ctx.reply(GREETING, { parse_mode: 'Markdown' });
+  for (const id of oldIds) {
+    await ctx.deleteMessage(id).catch(() => {});
+  }
+  const dunMsg = await ctx.reply(`✅ DUN dipilih: ${cached.dun} (${cached.parlimen})`);
+  await new Promise(r => setTimeout(r, 2000));
+  await ctx.deleteMessage(dunMsg.message_id).catch(() => {});
+  await new Promise(r => setTimeout(r, 5000));
+  await ctx.reply(APA_KABAR);
 }
 
 export async function changeDunHandler(ctx: Context, redis: Redis): Promise<void> {
@@ -131,14 +152,24 @@ export async function confirmDunHandler(ctx: Context, redis: Redis): Promise<voi
   session.state = 'conversing';
   session.constituency = match;
   session.pendingDun = null;
-  session.conversation.push({ role: 'assistant', content: GREETING });
+  const oldIds = session.systemMessageIds || [];
+  session.systemMessageIds = [];
+  session.conversation.push({ role: 'assistant', content: `✅ DUN dipilih: ${match.dun} (${match.parlimen})` });
+  session.conversation.push({ role: 'assistant', content: APA_KABAR });
   await Promise.all([
     saveSession(redis, chatId, session),
     saveCachedConstituency(redis, chatId, match!),
   ]);
 
   await ctx.answerCbQuery();
-  await ctx.reply(GREETING, { parse_mode: 'Markdown' });
+  for (const id of oldIds) {
+    await ctx.deleteMessage(id).catch(() => {});
+  }
+  const dunMsg = await ctx.reply(`✅ DUN dipilih: ${match.dun} (${match.parlimen})`);
+  await new Promise(r => setTimeout(r, 2000));
+  await ctx.deleteMessage(dunMsg.message_id).catch(() => {});
+  await new Promise(r => setTimeout(r, 5000));
+  await ctx.reply(APA_KABAR);
 }
 
 export async function retryDunHandler(ctx: Context, redis: Redis): Promise<void> {
@@ -235,27 +266,59 @@ export async function submitAction(
     return;
   }
 
+  const ringkasanId = session.ringkasanMessageId;
+  const userLanguage = session.language || 'malay';
+  const summary = session.latestSummary;
+  const constituency = session.constituency;
+
+  await ctx.answerCbQuery();
+
+  if (ringkasanId != null) {
+    await ctx.deleteMessage(ringkasanId).catch(() => {});
+  }
+
   const displayName = ctx.from?.first_name ?? null;
   const voterInput = buildVoterInput(chatId, displayName, session);
 
   try {
     await pushToQueue(redis, config.queueVoterInputs, JSON.stringify(voterInput));
     await incrementCounter(redis, 'stats:telegram-bot:messages_ingested');
-    await deleteSession(redis, chatId);
 
-    await ctx.answerCbQuery();
-    await ctx.replyWithSticker(THUMBS_UP_STICKER).catch(() => {});
-    await ctx.reply(
-      '🎉 *Suara Berjaya Disimpan!* (100% Anon)\n\n'
-      + 'Terima kasih! Isu atau diskusi anda dah selamat masuk ke dalam database kami. '
-      + 'Pasukan digital kami akan mula proses idea ni untuk tindakan seterusnya.\n\n'
-      + '💬 *Ada benda lain yang anda nak bincangkan?*',
-      { parse_mode: 'Markdown' },
-    );
+    const languageMap: Record<string, string> = {
+      malay: 'Bahasa Malaysia',
+      english: 'English',
+      mandarin: 'Mandarin',
+      tamil: 'Tamil',
+    };
+    const langLabel = languageMap[userLanguage] || 'Bahasa Malaysia';
+
+    const thankYouPrompt = [
+      {
+        role: 'system',
+        content: `You are a warm Malaysian constituency service assistant. Generate a short thank-you message (2-3 sentences) in ${langLabel}. Thank the user for sharing their feedback, say your team will carefully review it and take it into consideration, and that their voice matters. Keep it warm, genuine, and natural. Do NOT use markdown. Do NOT use emoji.`,
+      },
+      {
+        role: 'user',
+        content: `Constituency: ${constituency ? `${constituency.dun}, ${constituency.parlimen}` : 'N/A'}\nFeedback summary: ${summary}`,
+      },
+    ];
+
+    const [thankYouText] = await Promise.all([
+      callSimpleLlm(
+        config.openrouterBaseUrl,
+        config.openrouterApiKey,
+        config.llmModel,
+        thankYouPrompt,
+      ),
+      ctx.replyWithSticker(THUMBS_UP_STICKER).catch(() => {}),
+    ]);
+
+    await ctx.reply(thankYouText);
+    await deleteSession(redis, chatId);
   } catch (err) {
     logger.error({ err, chatId }, 'Failed to process submission');
-    await ctx.answerCbQuery();
     await ctx.reply('Maaf, berlaku ralat semasa menghantar aduan. Sila cuba lagi.');
+    await deleteSession(redis, chatId);
   }
 }
 
@@ -269,7 +332,13 @@ export async function cancelAction(
     return;
   }
 
+  const session = await loadSession(redis, chatId);
+  const ringkasanId = session?.ringkasanMessageId;
+
   await deleteSession(redis, chatId);
   await ctx.answerCbQuery();
-  await ctx.reply('Baik, diskusi ini tidak diteruskan.');
+
+  if (ringkasanId != null) {
+    await ctx.deleteMessage(ringkasanId).catch(() => {});
+  }
 }
