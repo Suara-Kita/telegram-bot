@@ -4,7 +4,12 @@ import { createSession, saveSession } from "../session.js";
 import { getLokalDuns, loadCachedConstituency } from "../constituency.js";
 
 const WELCOME =
-  "Selamat datang ke Project Synchro! 👋\n\nJom fokus pada masa depan Sekijang. Platform ini dibina khas sebagai ruang sembang 'no filter' dan 100% rahsia (anon) untuk kita sembang apa sahaja pasal landskap politik dan hala tuju anak muda.\n\nKongsi idea anda, luahkan pandangan politik, kritik cara lama, bincang pasal peluang ekonomi belia, berkongsi visi, atau hantar isu setempat seperti banjir dan fasiliti awam—semuanya tanpa perlu risau tentang identiti anda.\n\n⚙️ Dibangunkan & dipacu secara telus oleh Pasukan Digital Barisan Nasional Sekijang.\n\n🔒 Suara anda, identiti anda kekal selamat.";
+  "*Saya Onn AI, persona Dato' Onn Hafiz.*\n\n"
+  + "Sengaja saya nak ajak korang sembang santai kat sini sebab saya nak dengar sendiri setiap suara rakyat.\n\n"
+  + "Sebelum kita mula,\n\n"
+  + "📌 Pilih DUN Mengundi Korang\n\n"
+  + "Korang bawah DUN mana ya? Bagi yang belum pasti, boleh buat semakan senarai daftar pemilih dulu kat pautan bawah ni:\n\n"
+  + "🔗 Semak Di Sini: https://mysprsemak.spr.gov.my/semakan/daftarPemilih";
 
 export async function startHandler(ctx: Context, redis: Redis): Promise<void> {
   const chatId = ctx.chat?.id;
@@ -37,19 +42,16 @@ export async function startHandler(ctx: Context, redis: Redis): Promise<void> {
       },
     ]);
 
-    const welcomeMsg = await ctx.reply(WELCOME);
-    const pickerMsg = await ctx.reply(
-      '📌 Semakan DUN Mengundi\n\nSila pilih DUN anda. Bagi yang belum pasti, anda boleh membuat semakan senarai daftar pemilih melalui pautan di bawah:\n\n🔗 Semak Di Sini: https://mysprsemak.spr.gov.my/semakan/daftarPemilih',
-      {
-        reply_markup: {
-          inline_keyboard: [
-            ...buttons,
-            [{ text: "🌐 Lain-lain DUN", callback_data: "dun_lain" }],
-          ],
-        },
+    const msg = await ctx.reply(WELCOME, {
+      parse_mode: 'Markdown',
+      reply_markup: {
+        inline_keyboard: [
+          ...buttons,
+          [{ text: "🌐 Lain-lain DUN", callback_data: "dun_lain" }],
+        ],
       },
-    );
-    session.systemMessageIds = [welcomeMsg.message_id, pickerMsg.message_id];
+    });
+    session.systemMessageIds = [msg.message_id];
     await saveSession(redis, chatId, session);
   }
 }
